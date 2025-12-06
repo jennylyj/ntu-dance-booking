@@ -165,7 +165,7 @@ else:
     # 1. 從資料庫抓取資料 (抓取範圍：最小日期 ~ 最大日期)
     min_date = target_dates[0].strftime('%Y-%m-%d')
     max_date = target_dates[-1].strftime('%Y-%m-%d')
-       df = get_data(selected_venues, min_date, max_date)
+    df = get_data(selected_venues, min_date, max_date)
     
     # 2. 準備顯示用的 DataFrame
     hours = range(8, 23) # 8:00 到 22:00
