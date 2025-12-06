@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import scraper  # 匯入我們剛寫好的 scraper.py
 
 # 設定網頁標題與寬度
-st.set_page_config(page_title="台大場地預約助手", layout="wide")
+st.set_page_config(page_title="台大場地預約助手 by 李昀臻", layout="wide")
 
 # ==========================================
 # 1. 初始化狀態 (Session State)
