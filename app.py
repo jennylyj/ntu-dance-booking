@@ -48,7 +48,7 @@ def get_base_sunday():
 st.sidebar.title("🛠️ 控制面板")
 
 st.sidebar.subheader("🔄 資料同步")
-weeks_to_scrape = st.sidebar.slider("抓取未來幾週？", 1, 20, 2)
+weeks_to_scrape = st.sidebar.slider("抓取未來幾週？", 1, 25, 20)
 if st.sidebar.button("更新資料 (爬蟲)"):
     scraper.init_db() # 確保 DB 存在
     progress_bar = st.sidebar.progress(0)
@@ -72,6 +72,21 @@ all_venues = list(scraper.VENUES.keys())
 selected_venues = st.sidebar.multiselect("顯示哪些場地？", all_venues, default=["舊體", "韻律"])
 
 st.sidebar.subheader("👀 顯示設定")
+
+# 【更新功能 2】新增檢視模式選擇
+view_mode = st.sidebar.radio(
+    "檢視模式",
+    ("週曆模式 (看一週7天)", "星期模式 (看連五週)")
+)
+
+weekday_map = {"週日":0, "週一":1, "週二":2, "週三":3, "週四":4, "週五":5, "週六":6}
+target_weekday_idx = 0
+
+# 如果選擇星期模式，顯示下拉選單
+if view_mode == "星期模式 (看連五週)":
+    selected_weekday_str = st.sidebar.selectbox("選擇要檢查的星期", list(weekday_map.keys()), index=1) # 預設週一
+    target_weekday_idx = weekday_map[selected_weekday_str]
+
 show_mode = st.sidebar.radio(
     "顯示模式",
     ("顯示預約者 (若滿)", "僅顯示狀態 (可/不可)", "只看空場地")
@@ -96,33 +111,43 @@ base_sunday = get_base_sunday()
 current_sunday = base_sunday + timedelta(weeks=st.session_state['week_offset'])
 current_saturday = current_sunday + timedelta(days=6)
 
+# 根據模式決定要顯示哪些日期 (dates)
+target_dates = []
+
+if view_mode == "週曆模式 (看一週7天)":
+    # 原本的邏輯：從該週日開始，連續 7 天
+    target_dates = [current_sunday + timedelta(days=i) for i in range(7)]
+    title_text = f"📅 {target_dates[0].strftime('%Y-%m-%d')} ~ {target_dates[-1].strftime('%Y-%m-%d')}"
+    
+else:
+    # 新的邏輯：從該週的「特定星期」開始，往後抓 5 個相同的星期
+    # 先算出該週的那個星期幾是哪一天
+    start_weekday_date = current_sunday + timedelta(days=target_weekday_idx)
+    target_dates = [start_weekday_date + timedelta(weeks=i) for i in range(5)]
+    title_text = f"📅 {selected_weekday_str}特輯 ({target_dates[0].strftime('%m/%d')} ~ {target_dates[-1].strftime('%m/%d')})"
+
+
 # 使用三欄位佈局：[上週] [標題] [下週]
 col_prev, col_date, col_next = st.columns([1, 4, 1])
 
 with col_prev:
-    if st.button("◀ 上一週", use_container_width=True):
+    # 根據模式不同，按鈕的移動跨度也可以微調，這裡維持一週一週跳比較直覺
+    if st.button("◀ 往前回推", use_container_width=True):
         st.session_state['week_offset'] -= 1
         st.rerun()
 
 with col_next:
-    if st.button("下一週 ▶", use_container_width=True):
+    if st.button("往後推進 ▶", use_container_width=True):
         st.session_state['week_offset'] += 1
         st.rerun()
 
 with col_date:
-    # 漂亮的置中標題
-    date_range_str = f"{current_sunday.strftime('%Y-%m-%d')} ~ {current_saturday.strftime('%Y-%m-%d')}"
-    st.markdown(f"<h3 style='text-align: center; margin: 0;'>📅 {date_range_str}</h3>", unsafe_allow_html=True)
+    st.markdown(f"<h3 style='text-align: center; margin: 0;'>{title_text}</h3>", unsafe_allow_html=True)
     
     # 顯示目前是「本週」還是「未來第N週」
     offset = st.session_state['week_offset']
-    if offset == 0:
-        week_label = "(本週)"
-    elif offset > 0:
-        week_label = f"(未來 +{offset} 週)"
-    else:
-        week_label = f"(過去 {abs(offset)} 週)"
-    st.markdown(f"<div style='text-align: center; color: gray;'>{week_label}</div>", unsafe_allow_html=True)
+    label = "(本週)" if offset == 0 else (f"(未來 +{offset} 週)" if offset > 0 else f"(過去 {abs(offset)} 週)")
+    st.markdown(f"<div style='text-align: center; color: gray;'>起始點：{label}</div>", unsafe_allow_html=True)
 
 # 快速回到本週按鈕 (如果切換太遠的話)
 if st.session_state['week_offset'] != 0:
@@ -137,18 +162,27 @@ st.markdown("---")
 if not selected_venues:
     st.warning("👈 請在左側選擇至少一個場地！")
 else:
-    # 1. 從資料庫抓取該週資料
-    df = get_data(selected_venues, current_sunday.strftime('%Y-%m-%d'), current_saturday.strftime('%Y-%m-%d'))
+    # 1. 從資料庫抓取資料 (抓取範圍：最小日期 ~ 最大日期)
+    min_date = target_dates[0].strftime('%Y-%m-%d')
+    max_date = target_dates[-1].strftime('%Y-%m-%d')
+       df = get_data(selected_venues, min_date, max_date)
     
     # 2. 準備顯示用的 DataFrame
     hours = range(8, 23) # 8:00 到 22:00
-    dates = [current_sunday + timedelta(days=i) for i in range(7)]
-    weekdays_map = {0: '週日', 1: '週一', 2: '週二', 3: '週三', 4: '週四', 5: '週五', 6: '週六'}
+
+    # 設定欄位名稱
+    if view_mode == "週曆模式 (看一週7天)":
+        col_headers = [f"{d.strftime('%m/%d')}\n({list(weekday_map.keys())[d.isoweekday()%7]})" for d in target_dates]
+    else:
+        # 星期模式：欄位是日期，但括號內不用再寫星期幾(因為都一樣)，改寫「第幾週」比較清楚
+        col_headers = [f"{d.strftime('%Y-%m-%d')}" for i, d in enumerate(target_dates)]
+
+    # 建立空表格
+    df_display = pd.DataFrame(
+        {col: [""] * len(hours) for col in col_headers}, 
+        index=[f"{h:02d}:00" for h in hours]
+    )
     
-    # 建立空的表格結構
-    display_cols = [f"{d.strftime('%m/%d')}\n({weekdays_map[i]})" for i, d in enumerate(dates)]
-    display_data = {col: [""] * len(hours) for col in display_cols}
-    df_display = pd.DataFrame(display_data, index=[f"{h:02d}:00" for h in hours])
 
     if df.empty:
         # 如果沒資料，顯示提示
@@ -193,6 +227,10 @@ else:
         # 4. 繪製表格
         # height 設定高一點讓它不需要一直捲動
         st.dataframe(df_display, use_container_width=True, height=600)
+
+        # 說明文字
+        if view_mode == "星期模式 (看連五週)":
+            st.info(f"💡 目前顯示的是連續 5 週的 **{selected_weekday_str}** 預約狀況。適合安排固定社課！")
         
         st.markdown("""
         <small>
