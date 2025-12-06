@@ -221,7 +221,7 @@ else:
                             cell_content.append(f"⚫{v_name}(X)")
                 
                 # 將同一格的多個場地資訊用換行符號接起來
-                df_display.iat[h_idx, date_idx] = "\n".join(cell_content)
+                df_display.iat[h_idx, i] = "\n".join(cell_content)
 
         # 4. 繪製表格
         # height 設定高一點讓它不需要一直捲動
