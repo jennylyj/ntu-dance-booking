@@ -186,7 +186,7 @@ else:
 
     if df.empty:
         # 如果沒資料，顯示提示
-        st.info(f"⚠️ 目前資料庫沒有 {date_range_str} 的資料。")
+        st.info(f"⚠️ 資料庫中沒有 {min_date} 到 {max_date} 的資料。")
         st.markdown("👉 **請按左側側邊欄的「更新資料」按鈕來爬取最新課表！**")
     else:
         # 3. 填入資料
