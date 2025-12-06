@@ -170,44 +170,45 @@ def parse_and_save(cursor, html, venue_name, venue_id, start_date_obj):
             status = "可預約"
             booker_name = ""
 
-            if slot.name == 'a':
-                # --- 狀況 A：可預約 ---
-                # 遇到空位，清空記憶
-                current_booker_name = ""
-                status = "可預約"
+            # 取得該格子的所有 class
+            slot_classes = slot.get('class', [])
+
+            # --- 判斷邏輯 ---
             
+            # 1. 優先檢查：是否不開放 (disable)
+            # 台大系統通常會在 class 加入 'disable' 來表示不開放
+            if 'disable' in slot_classes:
+                status = "不開放"
+                current_booker_name = "" # 不開放就沒有記憶名字的必要
+
+            # 2. 檢查：如果是 <a> 標籤且沒有 disable
+            elif slot.name == 'a':
+                status = "可預約"
+                current_booker_name = ""
+
+            # 3. 檢查：如果是 <div> 標籤
             elif slot.name == 'div':
-                # --- 狀況 B：已預約 ---
                 status = "已預約"
                 
-                # 試著找看看有沒有 "EventName" (這是台大系統記錄名稱的標準標籤)
+                # 嘗試抓取 EventName
                 event_div = slot.find('div', class_='EventName')
                 
                 if event_div:
-                    # B-1: 這一格是「頭」，有寫名字
-                    # 更新記憶
                     current_booker_name = event_div.get_text(strip=True)
                     booker_name = current_booker_name
-                
                 else:
-                    # B-2: 這一格是「身體」，裡面沒寫名字
-                    # 嘗試用去背法檢查是否有其他文字 (例如有些沒包在 EventName 裡)
+                    # 去背法
                     full_text = slot.get_text(strip=True)
                     raw_text = full_text.replace(time_text, "").strip()
                     
                     if raw_text:
-                        # 如果有殘留文字，就用它當名字，並更新記憶
                         current_booker_name = raw_text
                         booker_name = current_booker_name
                     else:
-                        # 如果真的全空，就使用「記憶中」的名字
+                        # 沿用記憶
                         booker_name = current_booker_name
 
-            # 3. 存入資料庫
-            # 這裡我們不需要再用 range 迴圈去自動長出時段了，
-            # 因為台大的 HTML 結構其實每一小時都有一個 div (只是有的有字，有的沒字)
-            # 我們只要順著 HTML 的格子一個一個存進去就好
-            
+            # 存入 DB
             cursor.execute('''
                 INSERT OR REPLACE INTO bookings (venue_name, venue_id, date, hour, status, booker_name, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
