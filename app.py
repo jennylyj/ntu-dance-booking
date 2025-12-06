@@ -48,7 +48,7 @@ def get_base_sunday():
 st.sidebar.title("🛠️ 控制面板")
 
 st.sidebar.subheader("🔄 資料同步")
-weeks_to_scrape = st.sidebar.slider("抓取未來幾週？", 1, 6, 2)
+weeks_to_scrape = st.sidebar.slider("抓取未來幾週？", 1, 20, 2)
 if st.sidebar.button("更新資料 (爬蟲)"):
     scraper.init_db() # 確保 DB 存在
     progress_bar = st.sidebar.progress(0)
@@ -81,6 +81,14 @@ show_mode = st.sidebar.radio(
 # 4. 主頁面 (Main Area)
 # ==========================================
 st.title("💃 台大熱舞社 場地協尋系統 by李昀臻 20251206")
+
+st.markdown("""
+        <small>
+        <b>圖例：</b> 🟢 可預約 | 🔴 已被預約 | ⚫ 場地不開放<br>
+        若顯示空白，代表資料庫中無該時段紀錄（可能是該場地尚未開放該時段）。
+        developed by 李昀臻 version 2025.12
+        </small>
+        """, unsafe_allow_html=True)
 
 # --- 日期導航欄 (Navigation) ---
 # 計算目前顯示的週次範圍
