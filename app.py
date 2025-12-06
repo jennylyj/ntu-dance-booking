@@ -190,12 +190,11 @@ else:
         st.markdown("👉 **請按左側側邊欄的「更新資料」按鈕來爬取最新課表！**")
     else:
         # 3. 填入資料
-        for date_idx, date_obj in enumerate(dates):
+        for i, date_obj in enumerate(target_dates):
             d_str = date_obj.strftime('%Y-%m-%d')
-            col_name = display_cols[date_idx]
+            col_name = col_headers[i]
             
             for h_idx, h in enumerate(hours):
-                # 篩選這一格的資料
                 cell_data = df[(df['date'] == d_str) & (df['hour'] == h)]
                 
                 cell_content = []
