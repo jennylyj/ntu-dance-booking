@@ -101,7 +101,7 @@ st.markdown("""
         <small>
         <b>圖例：</b> 🟢 可預約 | 🔴 已被預約 | ⚫ 場地不開放<br>
         若顯示空白，代表資料庫中無該時段紀錄（可能是該場地尚未開放該時段）。
-        developed by 李昀臻 version 2025.12
+        Jun Studio v.2
         </small>
         """, unsafe_allow_html=True)
 
